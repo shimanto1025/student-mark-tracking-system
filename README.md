@@ -1,5 +1,6 @@
 # Student Mark Tracking System
 
+
 ## Project Overview
 A Vue.js web application for managing student marks and academic performance tracking. This system provides different interfaces for Students, Teachers, and Teaching Assistants with role-based access control.
 
@@ -19,19 +20,7 @@ A Vue.js web application for managing student marks and academic performance tra
 - Define assessment types and weights
 - Full CRUD operations on marks data
 
-## Technologies Used
-- Vue.js 3 (Composition API)
-- Vue Router 4
-- Pinia (State Management)
-- Bootstrap 5
-- Bootstrap Icons
-- HTML2PDF.js (for report generation)
 
-## Installation & Setup
-
-### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
 
 ### Installation Steps
 
@@ -50,3 +39,6 @@ npm install pinia
 npm install axios
 npm install bootstrap@5
 npm install bootstrap-icons
+
+
+## Created by shimanto
