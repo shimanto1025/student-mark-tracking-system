@@ -54,6 +54,32 @@ export const useAuthStore = defineStore('auth', () => {
     // Add more mock data as needed
   ]
 
+  // Mock course rules data - stored in localStorage for persistence
+  // Initialize with some default rules if localStorage is empty
+  const initializeCourseRules = () => {
+    const storedRules = localStorage.getItem('courseRules')
+    if (!storedRules) {
+      // Default course rules for demonstration
+      const defaultRules = [
+        { id: 1, courseId: 1, assessment: 'Mid-term Exam', weight: 0.3 },
+        { id: 2, courseId: 1, assessment: 'Presentation', weight: 0.2 },
+        { id: 3, courseId: 1, assessment: 'Classwork', weight: 0.1 },
+        { id: 4, courseId: 1, assessment: 'Final Project', weight: 0.4 },
+        { id: 5, courseId: 2, assessment: 'Homework', weight: 0.2 },
+        { id: 6, courseId: 2, assessment: 'Mid-term Exam', weight: 0.3 },
+        { id: 7, courseId: 2, assessment: 'Final Examination', weight: 0.5 },
+        { id: 8, courseId: 3, assessment: 'Assignments', weight: 0.3 },
+        { id: 9, courseId: 3, assessment: 'Quizzes', weight: 0.2 },
+        { id: 10, courseId: 3, assessment: 'Final Exam', weight: 0.5 }
+      ]
+      localStorage.setItem('courseRules', JSON.stringify(defaultRules))
+      return defaultRules
+    }
+    return JSON.parse(storedRules)
+  }
+
+  let mockCourseRules = initializeCourseRules()
+
   const login = (username, password) => {
     const foundUser = mockUsers.find(u => u.username === username && u.password === password)
     
@@ -82,7 +108,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const addMark = (markData) => {
-    const newId = Math.max(...mockMarks.map(m => m.id)) + 1
+    const newId = Math.max(...mockMarks.map(m => m.id), 0) + 1
     mockMarks.push({ id: newId, ...markData })
     return newId
   }
@@ -121,6 +147,65 @@ export const useAuthStore = defineStore('auth', () => {
     return mockCourses.find(c => c.id === id)
   }
 
+  // Course Rules Methods
+  const getCourseRules = (courseId) => {
+    mockCourseRules = JSON.parse(localStorage.getItem('courseRules') || '[]')
+    return mockCourseRules.filter(rule => rule.courseId === courseId)
+  }
+
+  const saveCourseRules = (courseId, rules) => {
+    try {
+      // Get current rules from localStorage
+      const currentRules = JSON.parse(localStorage.getItem('courseRules') || '[]')
+      
+      // Remove existing rules for this course
+      const filteredRules = currentRules.filter(rule => rule.courseId !== courseId)
+      
+      // Generate new IDs for the rules
+      const maxId = Math.max(...currentRules.map(r => r.id), 0)
+      
+      // Add new rules with IDs
+      const newRules = rules.map((rule, index) => ({
+        ...rule,
+        id: maxId + index + 1,
+        courseId: courseId
+      }))
+      
+      // Combine and save
+      const allRules = [...filteredRules, ...newRules]
+      localStorage.setItem('courseRules', JSON.stringify(allRules))
+      mockCourseRules = allRules
+      return true
+    } catch (error) {
+      console.error('Error saving course rules:', error)
+      return false
+    }
+  }
+
+  const deleteCourseRule = (ruleId) => {
+    try {
+      const currentRules = JSON.parse(localStorage.getItem('courseRules') || '[]')
+      const filteredRules = currentRules.filter(rule => rule.id !== ruleId)
+      localStorage.setItem('courseRules', JSON.stringify(filteredRules))
+      mockCourseRules = filteredRules
+      return true
+    } catch (error) {
+      console.error('Error deleting course rule:', error)
+      return false
+    }
+  }
+
+  const getAssessmentsForCourse = (courseId) => {
+    const rules = getCourseRules(courseId)
+    return rules.map(rule => rule.assessment)
+  }
+
+  const getWeightForAssessment = (courseId, assessment) => {
+    const rules = getCourseRules(courseId)
+    const rule = rules.find(r => r.assessment === assessment)
+    return rule ? rule.weight : null
+  }
+
   return {
     user,
     isAuthenticated,
@@ -134,6 +219,11 @@ export const useAuthStore = defineStore('auth', () => {
     getCourses,
     getStudents,
     getUserById,
-    getCourseById
+    getCourseById,
+    getCourseRules,
+    saveCourseRules,
+    deleteCourseRule,
+    getAssessmentsForCourse,
+    getWeightForAssessment
   }
 })

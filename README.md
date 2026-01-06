@@ -14,6 +14,7 @@ A Vue.js web application for managing student marks and academic performance tra
 - Calculate overall scores and grades
 
 ### For Teachers & TAs:
+- Teacher can also define Courese Rule
 - Add, update, and delete student marks
 - Manage multiple courses
 - View student lists and their performance

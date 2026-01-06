@@ -52,6 +52,11 @@
           </button>
         </li>
         <li class="nav-item" role="presentation">
+          <button class="nav-link" id="rules-tab" data-bs-toggle="tab" data-bs-target="#rules" type="button">
+            <i class="bi bi-gear me-1"></i>Course Rules
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
           <button class="nav-link" id="students-tab" data-bs-toggle="tab" data-bs-target="#students" type="button">
             <i class="bi bi-people me-1"></i>Students List
           </button>
@@ -67,6 +72,15 @@
               <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Manage Student Marks</h5>
             </div>
             <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label">Filter by Course</label>
+                <select class="form-select w-auto d-inline-block ms-2" v-model="selectedCourseFilter" @change="filterMarks">
+                  <option value="">All Courses</option>
+                  <option v-for="course in assignedCourses" :key="course.id" :value="course.id">
+                    {{ course.name }} ({{ course.code }})
+                  </option>
+                </select>
+              </div>
               <div class="table-responsive">
                 <table class="table table-hover">
                   <thead class="table-dark">
@@ -81,7 +95,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="mark in allMarks" :key="mark.id">
+                    <tr v-for="mark in filteredMarks" :key="mark.id">
                       <td>{{ getStudentName(mark.studentId) }}</td>
                       <td>{{ getCourseName(mark.courseId) }}</td>
                       <td>{{ mark.assessment }}</td>
@@ -108,7 +122,7 @@
                         </div>
                       </td>
                     </tr>
-                    <tr v-if="allMarks.length === 0">
+                    <tr v-if="filteredMarks.length === 0">
                       <td colspan="7" class="text-center text-muted">No marks available</td>
                     </tr>
                   </tbody>
@@ -128,6 +142,15 @@
               <form @submit.prevent="addNewMark">
                 <div class="row g-3">
                   <div class="col-md-6">
+                    <label class="form-label">Course</label>
+                    <select class="form-select" v-model="newMark.courseId" @change="loadCourseRules" required>
+                      <option value="">Select Course</option>
+                      <option v-for="course in assignedCourses" :key="course.id" :value="course.id">
+                        {{ course.name }} ({{ course.code }})
+                      </option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
                     <label class="form-label">Student</label>
                     <select class="form-select" v-model="newMark.studentId" required>
                       <option value="">Select Student</option>
@@ -137,29 +160,31 @@
                     </select>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label">Course</label>
-                    <select class="form-select" v-model="newMark.courseId" required>
-                      <option value="">Select Course</option>
-                      <option v-for="course in assignedCourses" :key="course.id" :value="course.id">
-                        {{ course.name }} ({{ course.code }})
-                      </option>
-                    </select>
-                  </div>
-                  <div class="col-md-6">
                     <label class="form-label">Assessment Type</label>
                     <select class="form-select" v-model="newMark.assessment" required>
                       <option value="">Select Type</option>
-                      <option value="Mid-term Exam">Mid-term Exam</option>
-                      <option value="Presentation">Presentation</option>
-                      <option value="Classwork">Classwork</option>
-                      <option value="Homework">Homework</option>
-                      <option value="Final Project">Final Project</option>
-                      <option value="Final Examination">Final Examination</option>
+                      <option v-for="assessment in availableAssessments" :key="assessment" :value="assessment">
+                        {{ assessment }}
+                      </option>
+                      <option value="Custom">Custom Assessment</option>
                     </select>
+                    <div v-if="newMark.assessment === 'Custom'" class="mt-2">
+                      <input type="text" class="form-control" v-model="customAssessment" placeholder="Enter custom assessment name">
+                    </div>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label">Weight (0-1)</label>
-                    <input type="number" class="form-control" v-model="newMark.weight" step="0.1" min="0" max="1" required>
+                    <label class="form-label">Weight</label>
+                    <div class="input-group">
+                      <input type="number" class="form-control" v-model="newMark.weight" step="0.1" min="0" max="1" required>
+                      <span class="input-group-text">(0-1)</span>
+                    </div>
+                    <small class="form-text text-muted">
+                      Predefined weight: {{ selectedCourseWeight }}% 
+                      <span v-if="selectedCourseWeight > 0">({{ (selectedCourseWeight / 100).toFixed(1) }})</span>
+                    </small>
+                    <button v-if="selectedCourseWeight > 0" type="button" class="btn btn-sm btn-link p-0 mt-1" @click="applyPredefinedWeight">
+                      Use predefined weight
+                    </button>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Marks Obtained</label>
@@ -178,6 +203,124 @@
                   </div>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Course Rules Tab -->
+        <div class="tab-pane fade" id="rules" role="tabpanel">
+          <div class="card shadow">
+            <div class="card-header bg-secondary text-white">
+              <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Course Assessment Rules</h5>
+            </div>
+            <div class="card-body">
+              <div class="row mb-4">
+                <div class="col-md-6">
+                  <label class="form-label">Select Course</label>
+                  <select class="form-select" v-model="selectedCourseForRules" @change="loadCourseRules">
+                    <option value="">Select a course</option>
+                    <option v-for="course in assignedCourses" :key="course.id" :value="course.id">
+                      {{ course.name }} ({{ course.code }})
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div v-if="selectedCourseForRules">
+                <div class="card mb-4">
+                  <div class="card-header bg-light">
+                    <h6 class="mb-0">Define Assessment Weights for {{ getCourseName(selectedCourseForRules) }}</h6>
+                  </div>
+                  <div class="card-body">
+                    <div v-for="(rule, index) in courseRules" :key="index" class="row mb-3 align-items-center">
+                      <div class="col-md-4">
+                        <input type="text" class="form-control" v-model="rule.assessment" placeholder="Assessment name" required>
+                      </div>
+                      <div class="col-md-3">
+                        <div class="input-group">
+                          <input type="number" class="form-control" v-model="rule.weight" step="0.1" min="0" max="1" placeholder="0.0" required>
+                          <span class="input-group-text">(0-1)</span>
+                        </div>
+                      </div>
+                      <div class="col-md-2">
+                        <span class="badge bg-info">{{ (rule.weight * 100).toFixed(0) }}%</span>
+                      </div>
+                      <div class="col-md-3">
+                        <button class="btn btn-outline-danger btn-sm" @click="removeRule(index)">
+                          <i class="bi bi-trash"></i> Remove
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                      <button class="btn btn-outline-primary btn-sm" @click="addRule">
+                        <i class="bi bi-plus"></i> Add Assessment Type
+                      </button>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                      <strong>Total Weight:</strong> {{ totalWeight }} ({{ (totalWeight * 100).toFixed(0) }}%)
+                      <span v-if="totalWeight !== 1" class="text-danger">
+                        - Should total 1.0 (100%)
+                      </span>
+                      <span v-else class="text-success">
+                        ✓ Weight distribution is valid
+                      </span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                      <button class="btn btn-success" @click="saveCourseRules" :disabled="totalWeight !== 1">
+                        <i class="bi bi-save me-1"></i>Save Rules
+                      </button>
+                      <button class="btn btn-outline-secondary" @click="loadCourseRules">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Reset
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Existing Rules Display -->
+                <div class="card">
+                  <div class="card-header bg-light">
+                    <h6 class="mb-0">Current Rules</h6>
+                  </div>
+                  <div class="card-body">
+                    <div v-if="existingRules.length > 0" class="table-responsive">
+                      <table class="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>Assessment Type</th>
+                            <th>Weight</th>
+                            <th>Percentage</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(rule, index) in existingRules" :key="index">
+                            <td>{{ rule.assessment }}</td>
+                            <td>{{ rule.weight }}</td>
+                            <td>{{ (rule.weight * 100).toFixed(0) }}%</td>
+                            <td>
+                              <button class="btn btn-sm btn-outline-warning me-1" @click="editRule(index)">
+                                <i class="bi bi-pencil"></i>
+                              </button>
+                              <button class="btn btn-sm btn-outline-danger" @click="deleteRule(rule.id)">
+                                <i class="bi bi-trash"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div v-else class="text-center text-muted">
+                      No rules defined for this course
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center text-muted">
+                Please select a course to define assessment rules
+              </div>
             </div>
           </div>
         </div>
@@ -224,7 +367,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -235,6 +378,12 @@ const user = ref(null)
 const allMarks = ref([])
 const students = ref([])
 const courses = ref([])
+const courseRules = ref([])
+const existingRules = ref([])
+const selectedCourseFilter = ref('')
+const selectedCourseForRules = ref('')
+const selectedCourseWeight = ref(0)
+const customAssessment = ref('')
 
 const newMark = ref({
   studentId: '',
@@ -254,6 +403,22 @@ const assignedCourses = computed(() => {
   return courses.value.filter(course => course.teacherId === user.value.id)
 })
 
+const filteredMarks = computed(() => {
+  if (!selectedCourseFilter.value) return allMarks.value
+  return allMarks.value.filter(mark => mark.courseId === parseInt(selectedCourseFilter.value))
+})
+
+const totalWeight = computed(() => {
+  return courseRules.value.reduce((sum, rule) => sum + parseFloat(rule.weight || 0), 0)
+})
+
+const availableAssessments = computed(() => {
+  if (!newMark.value.courseId) return []
+  const courseId = parseInt(newMark.value.courseId)
+  const rules = authStore.getCourseRules(courseId)
+  return rules.map(rule => rule.assessment)
+})
+
 const loadAllData = () => {
   allMarks.value = authStore.getAllMarks().map(mark => ({
     ...mark,
@@ -262,6 +427,10 @@ const loadAllData = () => {
   }))
   students.value = authStore.getStudents()
   courses.value = authStore.getCourses()
+}
+
+const filterMarks = () => {
+  // The computed property will handle filtering
 }
 
 const getStudentName = (studentId) => {
@@ -301,10 +470,12 @@ const confirmDelete = (markId) => {
 }
 
 const addNewMark = () => {
+  const assessment = newMark.value.assessment === 'Custom' ? customAssessment.value : newMark.value.assessment
+  
   const markData = {
     studentId: parseInt(newMark.value.studentId),
     courseId: parseInt(newMark.value.courseId),
-    assessment: newMark.value.assessment,
+    assessment: assessment,
     marks: parseFloat(newMark.value.marks),
     maxMarks: parseFloat(newMark.value.maxMarks),
     weight: parseFloat(newMark.value.weight)
@@ -322,7 +493,75 @@ const addNewMark = () => {
       maxMarks: '',
       weight: ''
     }
+    customAssessment.value = ''
     loadAllData()
+  }
+}
+
+const applyPredefinedWeight = () => {
+  newMark.value.weight = (selectedCourseWeight.value / 100).toFixed(1)
+}
+
+const loadCourseRules = () => {
+  if (selectedCourseForRules.value) {
+    const courseId = parseInt(selectedCourseForRules.value)
+    existingRules.value = authStore.getCourseRules(courseId)
+    courseRules.value = existingRules.value.map(rule => ({ ...rule }))
+  }
+  
+  if (newMark.value.courseId) {
+    const courseId = parseInt(newMark.value.courseId)
+    const rules = authStore.getCourseRules(courseId)
+    // Find weight for selected assessment
+    if (newMark.value.assessment && rules.length > 0) {
+      const rule = rules.find(r => r.assessment === newMark.value.assessment)
+      selectedCourseWeight.value = rule ? rule.weight * 100 : 0
+    }
+  }
+}
+
+const addRule = () => {
+  courseRules.value.push({
+    assessment: '',
+    weight: 0.1,
+    courseId: parseInt(selectedCourseForRules.value)
+  })
+}
+
+const removeRule = (index) => {
+  courseRules.value.splice(index, 1)
+}
+
+const saveCourseRules = () => {
+  if (totalWeight.value !== 1) {
+    alert('Total weight must equal 1.0 (100%)')
+    return
+  }
+  
+  const courseId = parseInt(selectedCourseForRules.value)
+  const success = authStore.saveCourseRules(courseId, courseRules.value)
+  
+  if (success) {
+    alert('Course rules saved successfully!')
+    loadCourseRules()
+  }
+}
+
+const editRule = (index) => {
+  const rule = existingRules.value[index]
+  courseRules.value = [{
+    assessment: rule.assessment,
+    weight: rule.weight,
+    courseId: rule.courseId
+  }]
+}
+
+const deleteRule = (ruleId) => {
+  if (confirm('Are you sure you want to delete this rule?')) {
+    const success = authStore.deleteCourseRule(ruleId)
+    if (success) {
+      loadCourseRules()
+    }
   }
 }
 
@@ -335,6 +574,25 @@ const handleLogout = () => {
   authStore.logout()
   router.push('/')
 }
+
+// Watch for assessment selection to auto-fill weight
+watch(() => newMark.value.assessment, (newAssessment) => {
+  if (newMark.value.courseId && newAssessment) {
+    const courseId = parseInt(newMark.value.courseId)
+    const rules = authStore.getCourseRules(courseId)
+    const rule = rules.find(r => r.assessment === newAssessment)
+    if (rule) {
+      newMark.value.weight = rule.weight
+      selectedCourseWeight.value = rule.weight * 100
+    }
+  }
+})
+
+// Watch for course selection to reset assessment
+watch(() => newMark.value.courseId, () => {
+  newMark.value.assessment = ''
+  selectedCourseWeight.value = 0
+})
 </script>
 
 <style scoped>
@@ -351,5 +609,24 @@ const handleLogout = () => {
 
 .form-control-sm {
   width: 80px;
+}
+
+.badge {
+  font-size: 0.9em;
+  padding: 0.5em 0.8em;
+}
+
+.alert {
+  margin-bottom: 1rem;
+}
+
+.table-sm th,
+.table-sm td {
+  padding: 0.5rem;
+}
+
+.input-group-text {
+  background-color: #f8f9fa;
+  border-color: #ced4da;
 }
 </style>
